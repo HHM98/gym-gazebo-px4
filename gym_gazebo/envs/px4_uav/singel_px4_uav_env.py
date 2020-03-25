@@ -106,8 +106,11 @@ class SingelPx4UavEnv(gazebo_env.GazeboEnv):
             reward = reward - 1000
             done = True
 
-        state = np.append(data, self.des) # process needed
-
+        # trans relative position
+        data[0] = data[0] - self.des[0]
+        data[1] = data[1] - self.des[1]
+        data[2] = data[2] - self.des[2]
+        state = data
         print('@env@ observation:' + str(state))
         print('@env@ reward:' + str(reward))
         print('@env@ done:' + str(done))
@@ -152,7 +155,10 @@ class SingelPx4UavEnv(gazebo_env.GazeboEnv):
         # except (rospy.ServiceException) as e:
         #     print ("/gazebo/pause_physics service call failed")
 
-        state = np.append(data, self.des)
+        data[0] = data[0] - self.des[0]
+        data[1] = data[1] - self.des[1]
+        data[2] = data[2] - self.des[2]
+        state = data
         return state
 
     def set_des(self, destination):

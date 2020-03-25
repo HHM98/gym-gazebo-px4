@@ -96,9 +96,9 @@ if __name__ == '__main__':
         learningRate = 0.00025
         discountFactor = 0.99
         memorySize = 100000
-        network_inputs = 15
+        network_inputs = 12
         network_outputs = 7
-        network_structure = [50, 50]
+        network_structure = [30, 30]
         current_epoch = 0
 
         # init and create deepQ

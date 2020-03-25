@@ -14,7 +14,6 @@ import rostest
 
 from gym import utils, spaces
 from gym_gazebo.envs import gazebo_env
-from .mavros_offboard_posctl_test import MavrosOffboardPosctlTest
 from geometry_msgs.msg import  PoseStamped, Quaternion
 from mavros_msgs.msg import Altitude, ExtendedState, HomePosition, State, \
                             WaypointList
