@@ -8,6 +8,7 @@ import os
 import json
 import signal
 import deepq
+import random
 import numpy as np
 
 """ def render():
@@ -62,22 +63,23 @@ def restart_env(env):
         os.wait()
 
     env = gym.make('SingelPx4Uav-v0')
-    env.set_des(des)
+    env.set_des(des_list[random.randint(0, 3)])
     env._max_episode_steps = steps
     env = gym.wrappers.Monitor(env, outdir, force=not continue_execution, resume=continue_execution)
 
 
 if __name__ == '__main__':
-    des = np.array([120, -10, 10])
+    des_list = np.array([[50, 50, 15], [50, -50, 15], [-50, 50, 15], [-50, -50, 15]])
 
     env = gym.make('SingelPx4Uav-v0')
-    env.set_des(des)
-    outdir = '/tmp/gazebo_gym_experiments'
-    path = '/tmp/turtle_c2_dqn_ep'
+
+    env.set_des(des_list[random.randint(0, 3)])
+    outdir = '/px4_train/gazebo_gym_experiments'
+    path = '/px4_train/weights/px4_nav_dqn_ep'
 
     continue_execution = False
     # fill this if continue_execution=True
-    resume_epoch = '200'  # change to epoch to continue from
+    resume_epoch = '50'  # change to epoch to continue from
     resume_path = path + resume_epoch
     weights_path = resume_path + '.h5'
     monitor_path = resume_path
@@ -193,21 +195,22 @@ if __name__ == '__main__':
                         (sum(last100Scores) / len(last100Scores))) + " - Cumulated R: " + str(
                         cumulated_reward) + "   Eps=" + str(round(explorationRate, 2)) + "     Time: %d:%02d:%02d" % (
                            h, m, s))
-                    if (epoch) % 10 == 0:
-                        # save model weights and monitoring data every 10 epochs.
-                        deepQ.saveModel(path + str(epoch) + '.h5')
-                        env._flush()
-                        copy_tree(outdir, path + str(epoch))
-                        # save simulation parameters.
-                        parameter_keys = ['epochs', 'steps', 'updateTargetNetwork', 'explorationRate', 'minibatch_size',
-                                          'learnStart', 'learningRate', 'discountFactor', 'memorySize',
-                                          'network_inputs', 'network_outputs', 'network_structure', 'current_epoch']
-                        parameter_values = [epochs, steps, updateTargetNetwork, explorationRate, minibatch_size,
-                                            learnStart, learningRate, discountFactor, memorySize, network_inputs,
-                                            network_outputs, network_structure, epoch]
-                        parameter_dictionary = dict(zip(parameter_keys, parameter_values))
-                        with open(path + str(epoch) + '.json', 'w') as outfile:
-                            json.dump(parameter_dictionary, outfile)
+
+                if (epoch) % 50 == 0:
+                    # save model weights and monitoring data every 50 epochs.
+                    deepQ.saveModel(path + str(epoch) + '.h5')
+                    env._flush()
+                    copy_tree(outdir, path + str(epoch))
+                    # save simulation parameters.
+                    parameter_keys = ['epochs', 'steps', 'updateTargetNetwork', 'explorationRate', 'minibatch_size',
+                                      'learnStart', 'learningRate', 'discountFactor', 'memorySize',
+                                      'network_inputs', 'network_outputs', 'network_structure', 'current_epoch']
+                    parameter_values = [epochs, steps, updateTargetNetwork, explorationRate, minibatch_size,
+                                        learnStart, learningRate, discountFactor, memorySize, network_inputs,
+                                        network_outputs, network_structure, epoch]
+                    parameter_dictionary = dict(zip(parameter_keys, parameter_values))
+                    with open(path + str(epoch) + '.json', 'w') as outfile:
+                        json.dump(parameter_dictionary, outfile)
 
             stepCounter += 1
             if stepCounter % updateTargetNetwork == 0:

@@ -99,7 +99,7 @@ class SingelPx4UavEnv(gazebo_env.GazeboEnv):
                 
         # fail reward
         if (self.pos[0] < -50 or
-            self.pos[0] > 150 or
+            self.pos[0] > 50 or
             np.abs(self.pos[1]) > 50 or
             self.pos[2] > 40 or
             self.pos[2] < 1):
@@ -130,7 +130,7 @@ class SingelPx4UavEnv(gazebo_env.GazeboEnv):
 
         self.sendMsgGetReturn('reset')
         print('@env@ sleep 10s')
-        time.sleep(10)
+        time.sleep(3)
         # print('@env@ sleep 10s over')
         # Unpause simulation to make observation
         # print('Unpause simulation to make observation')
