@@ -13,6 +13,12 @@ register(
     max_episode_steps=1000,
     # more args
 )
+register(
+    id='MultiPx4Uav-v0',
+    entry_point='gym_gazebo.envs.px4_uav:MultiPx4UavEnv',
+    max_episode_steps=1000,
+    # more args
+)
 
 # Turtlebot envs
 register(

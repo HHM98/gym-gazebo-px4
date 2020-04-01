@@ -1,203 +1,40 @@
 #!/usr/bin/env python
+# need two args 1. uav_number 2. port_number
 from __future__ import division
 
-
-import gym
+import sys
 import rospy
-import roslaunch
-import time
 import math
 import numpy as np
 import inspect
 import ctypes
-import rostest
+import socket
+import time
+import pickle
 
-from gym import utils, spaces
-from gym_gazebo.envs import gazebo_env
-from geometry_msgs.msg import  PoseStamped, Quaternion
+from geometry_msgs.msg import PoseStamped, Quaternion
 from mavros_msgs.msg import Altitude, ExtendedState, HomePosition, State, \
-                            WaypointList
+    WaypointList
 from mavros_msgs.srv import CommandBool, ParamGet, SetMode, WaypointClear, \
-                            WaypointPush
-from std_srvs.srv import Empty
+    WaypointPush
 from std_msgs.msg import Header
 from pymavlink import mavutil
 from sensor_msgs.msg import NavSatFix, LaserScan
 from threading import Thread
 from tf.transformations import quaternion_from_euler
-from gym.utils import seeding
-
-class SingelPx4UavEnv(gazebo_env.GazeboEnv):
-
-    def __init__(self):
-        gazebo_env.GazeboEnv.__init__(self, "SinglePx4Uav-v0.launch")
-        time.sleep(10)
-        self.setUp()
-        rospy.wait_for_service('/gazebo/unpause_physics', 10)
-        self.unpause = rospy.ServiceProxy('/gazebo/unpause_physics', Empty)
-        self.pause = rospy.ServiceProxy('/gazebo/pause_physics', Empty)
-        self.reset_proxy = rospy.ServiceProxy('/gazebo/reset_world', Empty)
-
-        self.action_space = spaces.Discrete(7) # U, D, F, B, L, R
-        self.reward_range = (-np.inf, np.inf)
-        self._seed()
-
-    def step(self, action):
-        margin = 3
-        rospy.wait_for_service('/gazebo/unpause_physics')
-        try:
-            self.unpause()
-        except (rospy.ServiceException) as e:
-            print ("/gazebo/unpause_physics service call failed")
-
-        old_position = [self.local_position.pose.position.x,
-                        self.local_position.pose.position.y,
-                        self.local_position.pose.position.z]
-
-        if action == 0: #xPlus
-            self.moveUp(margin)
-        
-        if action == 1: #xMin
-            self.moveXMin(margin)
-
-        if action == 2: #yPlus
-            self.moveYPlus(margin)
-
-        if action == 3: #yMin
-            self.moveYMin(margin)
-
-        if action == 4: #up
-            self.moveUp(margin)
-
-        if action == 5: #down
-            self.moveDown(margin)
-
-        data = np.array([self.local_position.pose.position.x,
-                     self.local_position.pose.position.y,
-                     self.local_position.pose.position.z])
-        data = np.append(data, self.scan.ranges)
-        data = np.append(data, self.des)
-        print(data)
-
-        reward = 0
-        state = data # process needed
-        done = False # done check
-
-        if self.is_at_position(self.des[0], self.des[1],self.des[2], self.radius):
-            done = True
-            reward = 1000
-        else:
-            reward = self.cal_distence(old_position, self.pos.pose.position, self.des)
-
-        for i in self.scan.ranges:
-            if i < 1:
-                reward = -100
-                done = True
-
-        if (self.pos.pose.position.x < -50 or
-           self.pos.pose.position.y > 150 or
-           np.abs(self.pos.pose.position.y) > 50 or
-           self.pos.pose.position.z > 5 or
-           self.pos.pose.position.z < 1):
-            done = True
-
-        if self.state.armed == False:
-            done = True
 
 
-        print('state:' +str(self.state.armed)+ ' ' + str(self.state.mode))
-        print('observation:' + str(state))
-        print('reward:' + str(reward))
-        print('done:' + str(done))
-        return state, reward, done, {}
-
-    def reset(self):
-        # Resets the state of the environment and returns an initial observation.
-        print('Resets the state of the environment and returns an initial observation.')
-        rospy.wait_for_service('/gazebo/reset_world')
-        try:
-            #reset_proxy.call()
-            self.reset_proxy()
-            print('reset world')
-        except (rospy.ServiceException) as e:
-            print ("/gazebo/reset_world service call failed")
-        self.set_arm(False, 5)
-        time.sleep(15)
-        # Unpause simulation to make observation
-        print('Unpause simulation to make observation')
-        rospy.wait_for_service('/gazebo/unpause_physics')
-        try:
-            #resp_pause = pause.call()
-            self.unpause()
-        except (rospy.ServiceException) as e:
-            print ("/gazebo/unpause_physics service call failed")
-
-        self.getReady()
-        # self.reach_position(0, 0, 5, 5)
-        time.sleep(2)
-
-        data = np.array([self.local_position.pose.position.x,
-                     self.local_position.pose.position.y,
-                     self.local_position.pose.position.z])
-        data = np.append(data, self.scan.ranges)
-        data = np.append(data, self.des)
-        print('reset_pos: ' + str(self.local_position.pose.position))
-        print('reset_scan: ' + str(self.scan.ranges))
-        print('reset_des: ' + str(self.des))
-
-
-
-        rospy.wait_for_service('/gazebo/pause_physics')
-        try:
-            #resp_pause = pause.call()
-            self.pause()
-        except (rospy.ServiceException) as e:
-            print ("/gazebo/pause_physics service call failed")
-        state = data # process needed
-        return state
-            
-
-    def _seed(self, seed=None):
-        self.np_random, seed = seeding.np_random(seed)
-        return [seed]
-
-
-
-########################control########################
-########################control########################
-
-    def getReady(self):
-        print('getReady')
-        """Test offboard position control"""
-
-        self.set_arm(True, 5)
-        # make sure the simulation is ready to start the mission
-        print('wait for topics')
-        self.wait_for_topics(15)
-        try:
-            rospy.wait_for_service('/laser/scan', 10)
-        except  rospy.ROSException as e:
-            print(str(e))
-            print('fuck')
-        self.wait_for_landed_state(mavutil.mavlink.MAV_LANDED_STATE_ON_GROUND,
-                                   10, -1)
-        self.set_mode("OFFBOARD", 5)
-        self.reach_position(0, 0, 5, 5)
-        self.reach_position(0, 0, 5, 5)
-
-        self.ready = True
-        
-        
-    def try_fly(self):
-        print('getReady over')
-        rostest.rosrun('px4', 'mavros_offboard_posctl_test',
-                       MavrosOffboardPosctlTest)
+class MavrosCtrlCommon():
+    def __init__(self, number, *args):
+        self.uav_number = str(number)
+        self.uav_prefix = 'uav' + self.uav_number + '/'
+        pass
 
     def setUp(self):
-        print('setUp')
+        print('@ctrl_server@ uav{0} setUp'.format(self.uav_number))
+        self.pos = PoseStamped()
         self.altitude = Altitude()
         self.extended_state = ExtendedState()
-        self.pos = PoseStamped()
         self.global_position = NavSatFix()
         self.home_position = HomePosition()
         self.local_position = PoseStamped()
@@ -218,70 +55,85 @@ class SingelPx4UavEnv(gazebo_env.GazeboEnv):
             ]
         }
 
-        # ROS publisers
-        self.pos_setpoint_pub = rospy.Publisher(
-            'mavros/setpoint_position/local', PoseStamped, queue_size=1)
-        
-        # send setpoints in seperate thread
-        self.pos_thread = Thread(target=self.send_pos, args=())
-        self.pos_thread.daemon = True
-        self.pos_thread.start()
-
-
         # ROS services
         service_timeout = 60
         rospy.loginfo("waiting for ROS services")
 
         try:
-            rospy.wait_for_service('mavros/param/get', service_timeout)
-            rospy.wait_for_service('mavros/cmd/arming', service_timeout)
-            rospy.wait_for_service('mavros/mission/push', service_timeout)
-            rospy.wait_for_service('mavros/mission/clear', service_timeout)
-            rospy.wait_for_service('mavros/set_mode', service_timeout)
+            rospy.wait_for_service(self.uav_prefix + 'mavros/param/get', service_timeout)
+            rospy.wait_for_service(self.uav_prefix + 'mavros/cmd/arming', service_timeout)
+            rospy.wait_for_service(self.uav_prefix + 'mavros/mission/push', service_timeout)
+            rospy.wait_for_service(self.uav_prefix + 'mavros/mission/clear', service_timeout)
+            rospy.wait_for_service(self.uav_prefix + 'mavros/set_mode', service_timeout)
             rospy.loginfo("ROS services are up")
         except rospy.ROSException:
-            print("failed to connect to services")
-        self.get_param_srv = rospy.ServiceProxy('mavros/param/get',
+            print("@ctrl_server@ failed to connect to services")
+        self.get_param_srv = rospy.ServiceProxy(self.uav_prefix + 'mavros/param/get',
                                                 ParamGet)
-        self.set_arming_srv = rospy.ServiceProxy('mavros/cmd/arming',
+        self.set_arming_srv = rospy.ServiceProxy(self.uav_prefix + 'mavros/cmd/arming',
                                                  CommandBool)
-        self.set_mode_srv = rospy.ServiceProxy('mavros/set_mode',
+        self.set_mode_srv = rospy.ServiceProxy(self.uav_prefix + 'mavros/set_mode',
                                                SetMode)
-        self.wp_clear_srv = rospy.ServiceProxy('mavros/mission/clear',
+        self.wp_clear_srv = rospy.ServiceProxy(self.uav_prefix + 'mavros/mission/clear',
                                                WaypointClear)
-        self.wp_push_srv = rospy.ServiceProxy('mavros/mission/push',
+        self.wp_push_srv = rospy.ServiceProxy(self.uav_prefix + 'mavros/mission/push',
                                               WaypointPush)
 
         # ROS subscribers
-        self.alt_sub = rospy.Subscriber('mavros/altitude', 
+        self.alt_sub = rospy.Subscriber(self.uav_prefix + 'mavros/altitude',
                                         Altitude,
                                         self.altitude_callback)
-        self.ext_state_sub = rospy.Subscriber('mavros/extended_state',
+        self.ext_state_sub = rospy.Subscriber(self.uav_prefix + 'mavros/extended_state',
                                               ExtendedState,
                                               self.extended_state_callback)
-        self.global_pos_sub = rospy.Subscriber('mavros/global_position/global',
+        self.global_pos_sub = rospy.Subscriber(self.uav_prefix + 'mavros/global_position/global',
                                                NavSatFix,
                                                self.global_position_callback)
-        self.home_pos_sub = rospy.Subscriber('mavros/home_position/home',
+        self.home_pos_sub = rospy.Subscriber(self.uav_prefix + 'mavros/home_position/home',
                                              HomePosition,
                                              self.home_position_callback)
-        self.local_pos_sub = rospy.Subscriber('mavros/local_position/pose',
+        self.local_pos_sub = rospy.Subscriber(self.uav_prefix + 'mavros/local_position/pose',
                                               PoseStamped,
                                               self.local_position_callback)
-        self.mission_wp_sub = rospy.Subscriber('mavros/mission/waypoints', 
+        self.mission_wp_sub = rospy.Subscriber(self.uav_prefix + 'mavros/mission/waypoints',
                                                WaypointList,
                                                self.mission_wp_callback)
-        self.state_sub = rospy.Subscriber('mavros/state', State,
-                                          self.state_callback)  
-        self.get_scan_srv = rospy.Subscriber('/laser/scan', 
-                                               LaserScan,
-                                               self.scan_callback) 
-        print('setUp over')
+        self.state_sub = rospy.Subscriber(self.uav_prefix + 'mavros/state', State,
+                                          self.state_callback)
+        self.get_scan_srv = rospy.Subscriber('iris_rplidar_' + self.uav_number + '/laser/scan',
+                                             LaserScan,
+                                             self.scan_callback)
+
+        # ROS publisers
+        self.pos_setpoint_pub = rospy.Publisher(
+            self.uav_prefix + 'mavros/setpoint_position/local', PoseStamped, queue_size=1)
+
+        # send setpoints in seperate thread
+        self.pos_thread = Thread(target=self.send_pos, args=())
+        self.pos_thread.daemon = True
+        self.pos_thread.start()
+
+        print('@ctrl_server@ setUp over')
+        pass
+
+    def getReady(self):
+        print('@ctrl_server@ uav{0} getReady and takeoff'.format(self.uav_number))
+        """Test offboard position control"""
+
+        # make sure the simulation is ready to start the mission
+        self.wait_for_topics(60)
+        self.wait_for_landed_state(mavutil.mavlink.MAV_LANDED_STATE_ON_GROUND,
+                                   10, -1)
+
+        self.set_mode("OFFBOARD", 5)
+        self.set_arm(True, 5)
+        self.reach_position(0, 0, 5, 5)
+
+        self.ready = True
 
     def shutDown(self):
         self.stop_thread(self.pos_thread)
 
-    
     def _async_raise(self, tid, exctype):
         """raises the exception, performs cleanup if needed"""
         tid = ctypes.c_long(tid)
@@ -295,25 +147,13 @@ class SingelPx4UavEnv(gazebo_env.GazeboEnv):
             # and you should call it again with exc=NULL to revert the effect"""
             ctypes.pythonapi.PyThreadState_SetAsyncExc(tid, None)
             raise SystemError("PyThreadState_SetAsyncExc failed")
-        
+
     def stop_thread(self, thread):
         self._async_raise(thread.ident, SystemExit)
-        print('stop_thread')
-
+        print('@ctrl_server@ stop_thread')
 
     def tearDown(self):
         pass
-
-    # set the destination 
-    def set_des(self, destination):
-        self.des = destination
-
-    def cal_distence(self, old_position, new_position, destination):
-        old_distance = np.sqrt(np.square(destination[0] - old_position[0]) + np.square(destination[1] - old_position[1]) + np.square(destination[2] - old_position[2]))
-        
-        new_distance = np.sqrt(np.square(destination[0] - new_position.x) + np.square(destination[1] - new_position.y) + np.square(destination[2] - new_position.z))
-        
-        return old_distance - new_distance
 
     # Callback functions
     def altitude_callback(self, data):
@@ -321,7 +161,6 @@ class SingelPx4UavEnv(gazebo_env.GazeboEnv):
 
         if not self.sub_topics_ready['alt'] and not math.isnan(data.amsl):
             self.sub_topics_ready['alt'] = True
-
 
     def extended_state_callback(self, data):
         self.extended_state = data
@@ -367,14 +206,14 @@ class SingelPx4UavEnv(gazebo_env.GazeboEnv):
 
     # Helper methods
     def send_pos(self):
-        rate = rospy.Rate(30) # Hz
+        rate = rospy.Rate(30)  # Hz
         self.pos.header = Header()
         self.pos.header.frame_id = "base_footprint"
 
         while not rospy.is_shutdown():
             self.pos.header.stamp = rospy.Time.now()
             self.pos_setpoint_pub.publish(self.pos)
-            try:    # prevent garbage in console output when thread is killed
+            try:  # prevent garbage in console output when thread is killed
                 rate.sleep()
             except rospy.ROSInterruptException:
                 pass
@@ -401,19 +240,16 @@ class SingelPx4UavEnv(gazebo_env.GazeboEnv):
         self.pos.pose.orientation = Quaternion(*quaternion)
 
         # dose it reach the position in 'time' seconds?
-        loop_freq = 2 # Hz
+        loop_freq = 2  # Hz
         rate = rospy.Rate(loop_freq)
-        reach = False
         for i in xrange(timeout * loop_freq):
             if self.is_at_position(self.pos.pose.position.x,
                                    self.pos.pose.position.y,
                                    self.pos.pose.position.z, self.radius):
-                reached = True
                 break
-
             try:
                 rate.sleep()
-            except rospy.ROSException as e:
+            except rospy.ROSException:
                 pass
 
     def set_arm(self, arm, timeout):
@@ -437,7 +273,7 @@ class SingelPx4UavEnv(gazebo_env.GazeboEnv):
                 print(e)
 
     def set_mode(self, mode, timeout):
-        
+
         """mode: PX4 mode string, timeout(int): seconds"""
         loop_freq = 1  # Hz
         rate = rospy.Rate(loop_freq)
@@ -464,10 +300,8 @@ class SingelPx4UavEnv(gazebo_env.GazeboEnv):
         timeout(int): seconds"""
         loop_freq = 1  # Hz
         rate = rospy.Rate(loop_freq)
-        simulation_ready = False
         for i in xrange(timeout * loop_freq):
             if all(value for value in self.sub_topics_ready.values()):
-                simulation_ready = True
                 rospy.loginfo("simulation topics ready | seconds: {0} of {1}".
                               format(i / loop_freq, timeout))
                 break
@@ -510,10 +344,8 @@ class SingelPx4UavEnv(gazebo_env.GazeboEnv):
         """timeout(int): seconds"""
         loop_freq = 1  # Hz
         rate = rospy.Rate(loop_freq)
-        wps_cleared = False
         for i in xrange(timeout * loop_freq):
             if not self.mission_wp.waypoints:
-                wps_cleared = True
                 rospy.loginfo("clear waypoints success | seconds: {0} of {1}".
                               format(i / loop_freq, timeout))
                 break
@@ -576,8 +408,8 @@ class SingelPx4UavEnv(gazebo_env.GazeboEnv):
                     self.mav_type = res.value.integer
                     rospy.loginfo(
                         "MAV_TYPE received | type: {0} | seconds: {1} of {2}".
-                        format(mavutil.mavlink.enums['MAV_TYPE'][self.mav_type]
-                               .name, i / loop_freq, timeout))
+                            format(mavutil.mavlink.enums['MAV_TYPE'][self.mav_type]
+                                   .name, i / loop_freq, timeout))
                     break
             except rospy.ServiceException as e:
                 rospy.logerr(e)
@@ -587,54 +419,78 @@ class SingelPx4UavEnv(gazebo_env.GazeboEnv):
             except rospy.ROSException as e:
                 print(e)
 
-    def moveUp(self, margin = 1):
+    def moveOnce(self, cmd, margin):
+        if cmd == 'moveUp':
+            mcc.moveUp(margin)
+        elif cmd == 'moveDown':
+            mcc.moveDown(margin)
+        elif cmd == 'moveXPlus':
+            mcc.moveXPlus(margin)
+        elif cmd == 'moveXMin':
+            mcc.moveXMin(margin)
+        elif cmd == 'moveYPlus':
+            mcc.moveYPlus(margin)
+        elif cmd == 'moveYMin':
+            mcc.moveYMin(margin)
+        elif cmd == 'stay':
+            pass
+
+    def getState(self):
+        data = np.array([self.local_position.pose.position.x,
+                         self.local_position.pose.position.y,
+                         self.local_position.pose.position.z])
+        data = np.append(data, self.scan.ranges)
+        # a string state date
+        return data
+
+    def moveUp(self, margin=1):
         if not self.ready:
             self.getReady()
-        self.reach_position(self.pos.pose.position.x,
-                            self.pos.pose.position.y,
-                            self.pos.pose.position.z + margin,
-                            5)
-    
-    def moveDown(self, margin = 1):
-        if not self.ready:
-            self.getReady()
-        self.reach_position(self.pos.pose.position.x,
-                            self.pos.pose.position.y,
-                            self.pos.pose.position.z - margin,
+        self.reach_position(self.local_position.pose.position.x,
+                            self.local_position.pose.position.y,
+                            self.local_position.pose.position.z + margin,
                             5)
 
-    def moveXPlus(self, margin = 1):
+    def moveDown(self, margin=1):
         if not self.ready:
             self.getReady()
-        self.reach_position(self.pos.pose.position.x + margin,
-                            self.pos.pose.position.y,
-                            self.pos.pose.position.z,
+        self.reach_position(self.local_position.pose.position.x,
+                            self.local_position.pose.position.y,
+                            self.local_position.pose.position.z - margin,
                             5)
 
-    def moveXMin(self, margin = 1):
+    def moveXPlus(self, margin=1):
         if not self.ready:
             self.getReady()
-        self.reach_position(self.pos.pose.position.x - margin,
-                            self.pos.pose.position.y,
-                            self.pos.pose.position.z,
+        self.reach_position(self.local_position.pose.position.x + margin,
+                            self.local_position.pose.position.y,
+                            self.local_position.pose.position.z,
                             5)
 
-    def moveYPlus(self, margin = 1):
+    def moveXMin(self, margin=1):
         if not self.ready:
             self.getReady()
-        self.reach_position(self.pos.pose.position.x,
-                            self.pos.pose.position.y + margin,
-                            self.pos.pose.position.z,
+        self.reach_position(self.local_position.pose.position.x - margin,
+                            self.local_position.pose.position.y,
+                            self.local_position.pose.position.z,
                             5)
 
-    def moveYMin(self, margin = 1):
+    def moveYPlus(self, margin=1):
         if not self.ready:
             self.getReady()
-        self.reach_position(self.pos.pose.position.x,
-                            self.pos.pose.position.y - margin,
-                            self.pos.pose.position.z,
+        self.reach_position(self.local_position.pose.position.x,
+                            self.local_position.pose.position.y + margin,
+                            self.local_position.pose.position.z,
                             5)
-    
+
+    def moveYMin(self, margin=1):
+        if not self.ready:
+            self.getReady()
+        self.reach_position(self.local_position.pose.position.x,
+                            self.local_position.pose.position.y - margin,
+                            self.local_position.pose.position.z,
+                            5)
+
     def returnHomePosition(self):
         if not self.ready:
             self.getReady()
@@ -643,16 +499,15 @@ class SingelPx4UavEnv(gazebo_env.GazeboEnv):
                             self.home_position.position.z,
                             5)
 
-    def reset_needed(self):
-        import rostest
-        rospy.init_node('test_node', anonymous=True)
-        rostest.rosrun('px4', 'mavros_offboard_posctl_test',
-                   MavrosOffboardPosctlTest)
-    
+    def land(self):
+        self.set_mode("AUTO.LAND", 5)
+        self.wait_for_landed_state(mavutil.mavlink.MAV_LANDED_STATE_ON_GROUND,
+                                   45, 0)
+        self.set_arm(False, 5)
 
     def test_flight(self):
         rospy.loginfo("run mission")
-        positions = ((0, 0, 0), (50, 50, 20), (50, -50, 20), (-50, -50, 20),
+        positions = ((0, 0, 20), (50, 50, 20), (50, -50, 20), (-50, -50, 20),
                      (0, 0, 20))
 
         for i in xrange(len(positions)):
@@ -665,4 +520,61 @@ class SingelPx4UavEnv(gazebo_env.GazeboEnv):
         self.set_arm(False, 5)
 
 
+if __name__ == '__main__':
+    number = sys.argv[1]
+    port = sys.argv[2]
 
+    rospy.init_node('ctrl_server', anonymous=True)
+    mcc = MavrosCtrlCommon(number)
+    mcc.setUp()
+    time.sleep(5)
+    # mcc.test_flight()
+
+    # create a server
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.bind(('localhost', int(port)))
+    server.listen(10)
+    print('@ctrl_server@ ready port {0}'.format(port))
+    over = False
+
+    while True:
+        conn, addr = server.accept()
+        rospy.loginfo('mavros_ctrl_server port:{0} connected with:{1}'.format(port, str(addr)))
+        try:
+            print('@ctrl_server@ waiting cmd')
+            data = conn.recv(1024).split('#')
+            print('@ctrl_server@ get cmd ' + str(data))
+            # get cmd content
+            cmd = data[0]
+            margin = 1
+            if len(data) > 1 and len(data) < 2:
+                margin = int(data[1])
+            # execute cmd
+            #   env reset 
+            r_msg = ''
+            print('@ctrl_server@ executing cmd: ' + cmd)
+            if cmd == 'reset':
+                mcc.reach_position(0, 0, 0, 2)
+                mcc.land()
+                r_msg = mcc.getState()
+            #   the env is killed
+            elif cmd == 'takeoff':
+                mcc.getReady()
+                r_msg = mcc.getState()
+
+            elif cmd == 'shutdown':
+                mcc.shutDown()
+                over = True
+                r_msg = 'recv shutdown'
+            else:
+                mcc.moveOnce(cmd, margin)
+                r_msg = mcc.getState()
+            print('@ctrl_server@ executing ' + cmd + ' over, return msg ' + str(r_msg))
+            conn.send(pickle.dumps(r_msg))
+        except BaseException as e:
+            print(e)
+            time.sleep(3)
+            # conn.send('invaild cmd')
+
+        if over:
+            break

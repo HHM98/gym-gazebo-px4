@@ -63,7 +63,6 @@ def restart_env(env):
         os.wait()
 
     env = gym.make('SingelPx4Uav-v0')
-    env.set_des(des_list[random.randint(0, 3)])
     env._max_episode_steps = steps
     env = gym.wrappers.Monitor(env, outdir, force=not continue_execution, resume=continue_execution)
 
@@ -73,9 +72,8 @@ if __name__ == '__main__':
 
     env = gym.make('SingelPx4Uav-v0')
 
-    env.set_des(des_list[random.randint(0, 3)])
-    outdir = '/px4_train/gazebo_gym_experiments'
-    path = '/px4_train/weights/px4_nav_dqn_ep'
+    outdir = '/home/huhaomeng/px4_train/gazebo_gym_experiments'
+    path = '/home/huhaomeng/px4_train/weights/px4_nav_dqn_ep'
 
     continue_execution = False
     # fill this if continue_execution=True
@@ -146,6 +144,7 @@ if __name__ == '__main__':
 
     # iterating from 'current epoch'.
     for epoch in range(current_epoch + 1, epochs + 1, 1):
+        env.env.set_des(des_list[random.randint(0, 3)])
         observation = env.reset()
 
         cumulated_reward = 0
