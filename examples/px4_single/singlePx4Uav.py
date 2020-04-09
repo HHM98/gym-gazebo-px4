@@ -68,14 +68,14 @@ def restart_env(env):
 
 
 if __name__ == '__main__':
-    des_list = np.array([[50, 50, 15], [50, -50, 15], [-50, 50, 15], [-50, -50, 15]])
+    des_list = np.array([[40, 30, 30], [35, -20, 20], [-20, 35, 10], [-20, -40, 25]])
 
     env = gym.make('SingelPx4Uav-v0')
 
     outdir = '/home/huhaomeng/px4_train/gazebo_gym_experiments'
     path = '/home/huhaomeng/px4_train/weights/px4_nav_dqn_ep'
 
-    continue_execution = False
+    continue_execution = True
     # fill this if continue_execution=True
     resume_epoch = '50'  # change to epoch to continue from
     resume_path = path + resume_epoch
@@ -89,13 +89,13 @@ if __name__ == '__main__':
         # PARAMETER LIST
         epochs = 1000
         steps = 1000
-        updateTargetNetwork = 10000
+        updateTargetNetwork = 5000
         explorationRate = 1
-        minibatch_size = 64
-        learnStart = 64
-        learningRate = 0.00025
+        minibatch_size = 32
+        learnStart = 32
+        learningRate = 0.0001
         discountFactor = 0.99
-        memorySize = 100000
+        memorySize = 1000000
         network_inputs = 12
         network_outputs = 7
         network_structure = [30, 30]
@@ -141,23 +141,34 @@ if __name__ == '__main__':
     highest_reward = 0
 
     start_time = time.time()
+    counter = 0
 
     # iterating from 'current epoch'.
     for epoch in range(current_epoch + 1, epochs + 1, 1):
-        env.env.set_des(des_list[random.randint(0, 3)])
+        counter += 1
+        random_int = random.randint(0, 3)
+        env.env.set_des(des_list[random_int])
+        print ('set des: ' + str(des_list[random_int]))
         observation = env.reset()
 
         cumulated_reward = 0
         done = False
         episode_step = 0
-        print('observation: ' + str(observation))
+        # print('observation: ' + str(observation))
         # run until env returns done
         while not done:
             qValues = deepQ.getQValues(observation)
 
             action = deepQ.selectAction(qValues, explorationRate)
-            print('step:' + str(stepCounter) + '    episode:' + str(episode_step))
+
             n_observation, reward, done, info = env.step(action)
+
+            if stepCounter % 200 == 0 or done == True or episode_step == 0:
+                print('EP:' + str(epoch) + ' step:' + str(stepCounter) + ' episode:' + str(episode_step))
+                print('@env@ ob:' + str(observation))
+                print('@env@ des' + str(des_list[random_int]))
+                print('@env@ reward:' + str(reward))
+                print('@env@ done:' + str(done))
 
             cumulated_reward += reward
             if highest_reward < cumulated_reward:
@@ -175,8 +186,9 @@ if __name__ == '__main__':
 
             if done:
                 # restart env when env broken
-                if episode_step < 2:
+                if episode_step < 2 or counter > 5:
                     restart_env(env)
+                    counter = 0
 
                 last100Scores[last100ScoresIndex] = episode_step
                 last100ScoresIndex += 1
@@ -193,7 +205,7 @@ if __name__ == '__main__':
                         steps) + " Episode steps - last100 Steps : " + str(
                         (sum(last100Scores) / len(last100Scores))) + " - Cumulated R: " + str(
                         cumulated_reward) + "   Eps=" + str(round(explorationRate, 2)) + "     Time: %d:%02d:%02d" % (
-                           h, m, s))
+                               h, m, s))
 
                 if (epoch) % 50 == 0:
                     # save model weights and monitoring data every 50 epochs.
@@ -218,7 +230,7 @@ if __name__ == '__main__':
 
             episode_step += 1
 
-        explorationRate *= 0.995  # epsilon decay
-        explorationRate = max(0.05, explorationRate)
+        explorationRate *= 0.996  # epsilon decay
+        explorationRate = max(0.10, explorationRate)
 
     env.close()

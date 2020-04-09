@@ -309,8 +309,8 @@ class MavrosCtrlCommon():
         rate = rospy.Rate(loop_freq)
         for i in xrange(timeout * loop_freq):
             if all(value for value in self.sub_topics_ready.values()):
-                rospy.loginfo("simulation topics ready | seconds: {0} of {1}".
-                              format(i / loop_freq, timeout))
+                # rospy.loginfo("simulation topics ready | seconds: {0} of {1}".
+                #               format(i / loop_freq, timeout))
                 break
 
             try:
@@ -323,8 +323,8 @@ class MavrosCtrlCommon():
         rate = rospy.Rate(loop_freq)
         for i in xrange(timeout * loop_freq):
             if self.extended_state.landed_state == desired_landed_state:
-                rospy.loginfo("landed state confirmed | seconds: {0} of {1}".
-                              format(i / loop_freq, timeout))
+                # rospy.loginfo("landed state confirmed | seconds: {0} of {1}".
+                #               format(i / loop_freq, timeout))
                 break
 
             try:
@@ -338,8 +338,8 @@ class MavrosCtrlCommon():
         rate = rospy.Rate(loop_freq)
         for i in xrange(timeout * loop_freq):
             if transition == self.extended_state.vtol_state:
-                rospy.loginfo("transitioned | seconds: {0} of {1}".format(
-                    i / loop_freq, timeout))
+                # rospy.loginfo("transitioned | seconds: {0} of {1}".format(
+                #     i / loop_freq, timeout))
                 break
 
             try:
@@ -353,8 +353,8 @@ class MavrosCtrlCommon():
         rate = rospy.Rate(loop_freq)
         for i in xrange(timeout * loop_freq):
             if not self.mission_wp.waypoints:
-                rospy.loginfo("clear waypoints success | seconds: {0} of {1}".
-                              format(i / loop_freq, timeout))
+                # rospy.loginfo("clear waypoints success | seconds: {0} of {1}".
+                #               format(i / loop_freq, timeout))
                 break
             else:
                 try:
@@ -372,7 +372,7 @@ class MavrosCtrlCommon():
     def send_wps(self, waypoints, timeout):
         """waypoints, timeout(int): seconds"""
         if self.mission_wp.waypoints:
-            rospy.loginfo("FCU already has mission waypoints")
+             rospy.loginfo("FCU already has mission waypoints")
 
         loop_freq = 1  # Hz
         rate = rospy.Rate(loop_freq)
@@ -384,18 +384,18 @@ class MavrosCtrlCommon():
                     res = self.wp_push_srv(start_index=0, waypoints=waypoints)
                     wps_sent = res.success
                     if wps_sent:
-                        rospy.loginfo("waypoints successfully transferred")
+                         rospy.loginfo("waypoints successfully transferred")
                 except rospy.ServiceException as e:
                     rospy.logerr(e)
             else:
                 if len(waypoints) == len(self.mission_wp.waypoints):
-                    rospy.loginfo("number of waypoints transferred: {0}".
-                                  format(len(waypoints)))
+                    # rospy.loginfo("number of waypoints transferred: {0}".
+                    #               format(len(waypoints)))
                     wps_verified = True
 
             if wps_sent and wps_verified:
-                rospy.loginfo("send waypoints success | seconds: {0} of {1}".
-                              format(i / loop_freq, timeout))
+                # rospy.loginfo("send waypoints success | seconds: {0} of {1}".
+                #               format(i / loop_freq, timeout))
                 break
 
             try:
@@ -413,10 +413,10 @@ class MavrosCtrlCommon():
                 res = self.get_param_srv('MAV_TYPE')
                 if res.success:
                     self.mav_type = res.value.integer
-                    rospy.loginfo(
-                        "MAV_TYPE received | type: {0} | seconds: {1} of {2}".
-                        format(mavutil.mavlink.enums['MAV_TYPE'][self.mav_type]
-                               .name, i / loop_freq, timeout))
+                    # rospy.loginfo(
+                    #     "MAV_TYPE received | type: {0} | seconds: {1} of {2}".
+                    #     format(mavutil.mavlink.enums['MAV_TYPE'][self.mav_type]
+                    #            .name, i / loop_freq, timeout))
                     break
             except rospy.ServiceException as e:
                 rospy.logerr(e)
@@ -513,7 +513,7 @@ class MavrosCtrlCommon():
         self.set_arm(False, 5)
 
     def test_flight(self):
-        rospy.loginfo("run mission")
+        # rospy.loginfo("run mission")
         positions = ((0, 0, 20), (50, 50, 20), (50, -50, 20), (-50, -50, 20),
                      (0, 0, 20))
 
@@ -551,7 +551,7 @@ if __name__ == '__main__':
     
     while True:
         conn, addr = server.accept()
-        rospy.loginfo('mavros_ctrl_server connected with:' + str(addr))
+        # rospy.loginfo('mavros_ctrl_server connected with:' + str(addr))
         try:
             # print('@ctrl_server@ waiting cmd')
             data = conn.recv(1024).split('#')
@@ -581,7 +581,7 @@ if __name__ == '__main__':
             else:
                 mcc.moveOnce(cmd, margin)
                 r_msg = mcc.getState()
-            print('@ctrl_server@ executing' + cmd + 'over, return msg ' + str(r_msg))
+            # print('@ctrl_server@ executing' + cmd + 'over, return msg ' + str(r_msg))
             conn.send(pickle.dumps(r_msg))
         except BaseException as e:
             print(e)

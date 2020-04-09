@@ -35,7 +35,7 @@ class SingelPx4UavEnv(gazebo_env.GazeboEnv):
         self.action_space = spaces.Discrete(7)  # U, D, F, B, L, R
         self.reward_range = (-np.inf, np.inf)
         self._seed()
-        self.radius = 1
+        self.radius = 3
 
         os.system('python /home/huhaomeng/gym-gazebo/gym_gazebo/envs/px4_uav/mavros_ctrl_server.py &')
 
@@ -74,6 +74,9 @@ class SingelPx4UavEnv(gazebo_env.GazeboEnv):
         data = self.send_msg_get_return(cmd)
         self.pos = [data[0], data[1], data[2]]
         lidar_ranges = data[3:]
+        for idx in range(0, len(lidar_ranges)):
+            if lidar_ranges[idx] > 10 or lidar_ranges[idx] == np.inf:
+                lidar_ranges[idx] = 10
 
         # print('@env@ data' + str(data))
 
@@ -85,17 +88,17 @@ class SingelPx4UavEnv(gazebo_env.GazeboEnv):
                                self.pos[0], self.pos[1], self.pos[2],
                                self.radius):
             done = True
-            reward = reward + 1000
+            reward = reward + 10
         # move reward
         reward = reward + 2 * self.cal_distence(old_position, self.pos, self.des)
 
         # danger reward
         for i in lidar_ranges:
             if i < 1.5:
-                reward = -1000
+                reward = -5
                 done = True
             elif i <= 6:
-                reward = reward - 1 / (i - 1.6)
+                reward = reward - 1 / (i - 1)
 
         # fail reward
         if (self.pos[0] < -50 or
@@ -103,17 +106,32 @@ class SingelPx4UavEnv(gazebo_env.GazeboEnv):
                 np.abs(self.pos[1]) > 50 or
                 self.pos[2] > 40 or
                 self.pos[2] < 1):
-            reward = reward - 1000
+            reward = reward - 5
             done = True
 
         # trans relative position
         data[0] = data[0] - self.des[0]
         data[1] = data[1] - self.des[1]
         data[2] = data[2] - self.des[2]
+
+        for idx in range(len(data)):
+            if idx < 3:
+                data[idx] = (data[idx] + 50) / 100
+            else:
+                if data[idx] > 10 or data[idx] == np.inf:
+                    data[idx] = 10
+                data[idx] = (data[idx] - 0.2) / 9.8
+
         state = data
-        print('@env@ observation:' + str(state))
-        print('@env@ reward:' + str(reward))
-        print('@env@ done:' + str(done))
+
+        if 'nan' in str(data):
+            state = np.zeros([len(data)])
+            done = True
+            reward = 0
+
+        # print('@env@ observation:' + str(state))
+        # print('@env@ reward:' + str(reward))
+        # print('@env@ done:' + str(done))
         return state, reward, done, {}
 
     def reset(self):
@@ -124,7 +142,7 @@ class SingelPx4UavEnv(gazebo_env.GazeboEnv):
         try:
             # reset_proxy.call()
             self.reset_proxy()
-            print('@env@ reset model place')
+            # print('@env@ reset model place')
         except rospy.ServiceException as e:
             print ("@env@ /gazebo/reset_world service call failed")
 
@@ -143,7 +161,7 @@ class SingelPx4UavEnv(gazebo_env.GazeboEnv):
         # reset ctrl and get observation
         # print('@env@ send takeoff msg')
         data = self.send_msg_get_return('takeoff')
-        print ('@env@ takeoff init state:' + str(data))
+        # print ('@env@ takeoff init state:' + str(data))
 
         # rospy.wait_for_service('/gazebo/pause_physics')
         # try:
@@ -155,7 +173,18 @@ class SingelPx4UavEnv(gazebo_env.GazeboEnv):
         data[0] = data[0] - self.des[0]
         data[1] = data[1] - self.des[1]
         data[2] = data[2] - self.des[2]
+        self.pos = np.array([0, 0, 0])
+        for idx in range(len(data)):
+            if idx < 3:
+                data[idx] = (data[idx] + 50) / 100
+            else:
+                if data[idx] > 10 or data[idx] == np.inf:
+                    data[idx] = 10
+                data[idx] = (data[idx] - 0.2) / 9.8
+
         state = data
+        if 'nan' in str(state):
+            state = np.zeros([len(state)])
         return state
 
     def set_des(self, destination):
@@ -190,9 +219,9 @@ class SingelPx4UavEnv(gazebo_env.GazeboEnv):
                 # print('@env@ try to connect with ctrl server')
                 ctrl_client.connect(('localhost', 19881))
                 connected = True
-                print('@env@ connected with ctrl server')
+                # print('@env@ connected with ctrl server')
             except BaseException as e:
-                print('@env@[Error] ' + str(e))
+                # print('@env@[Error] ' + str(e))
                 time.sleep(1)
                 pass
 
@@ -202,7 +231,7 @@ class SingelPx4UavEnv(gazebo_env.GazeboEnv):
         try:
             ctrl_client.send(msg)
             data = pickle.loads(ctrl_client.recv(1024))
-            print('@env@ send msg ' + msg + ' get return: ' + str(data))
+            # print('@env@ send msg ' + msg + ' get return: ' + str(data))
             # done = True
         except BaseException as e:
             print ('@env@[Error] ' + str(e))

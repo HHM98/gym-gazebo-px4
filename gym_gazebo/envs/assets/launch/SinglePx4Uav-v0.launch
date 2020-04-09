@@ -12,7 +12,7 @@
     <!-- vehicle model and world -->
     <arg name="est" default="ekf2"/>
     <arg name="vehicle" default="iris_rplidar"/>
-    <arg name="world" default="$(find mavlink_sitl_gazebo)/worlds/city1.world"/>
+    <arg name="world" default="$(find mavlink_sitl_gazebo)/worlds/city2.world"/>
     <arg name="sdf" default="$(find mavlink_sitl_gazebo)/models/$(arg vehicle)/$(arg vehicle).sdf"/>
     <arg name="rcS" default="$(find px4)/posix-configs/SITL/init/$(arg est)/$(arg vehicle)"/>
 
