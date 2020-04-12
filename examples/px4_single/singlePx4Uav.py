@@ -70,7 +70,7 @@ def restart_env(env):
 if __name__ == '__main__':
     des_list = np.array([[40, 30, 30], [35, -20, 20], [-20, 35, 10], [-20, -40, 25]])
 
-    env = gym.make('SingelPx4Uav-v0')
+    env = gym.make('SinglePx4Uav-v0')
 
     outdir = '/home/huhaomeng/px4_train/gazebo_gym_experiments'
     path = '/home/huhaomeng/px4_train/weights/px4_nav_dqn_ep'
@@ -222,7 +222,6 @@ if __name__ == '__main__':
                     parameter_dictionary = dict(zip(parameter_keys, parameter_values))
                     with open(path + str(epoch) + '.json', 'w') as outfile:
                         json.dump(parameter_dictionary, outfile)
-
             stepCounter += 1
             if stepCounter % updateTargetNetwork == 0:
                 deepQ.updateTargetNetwork()

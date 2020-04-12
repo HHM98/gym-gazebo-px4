@@ -10,6 +10,7 @@ import socket
 import subprocess
 import os
 import pickle
+import types
 
 from gym import utils, spaces
 from gym_gazebo.envs import gazebo_env
@@ -57,20 +58,23 @@ class SingelPx4UavEnv(gazebo_env.GazeboEnv):
                         self.pos[2]]
 
         cmd = ''
-        if action == 0:  # xPlus
+        if type(action) != type(0):
+            cmd = 'move#{0}#{1}#{2}'.format(action[0], action[1], action[2])
+        elif action == 0:  # xPlus
             cmd = 'moveXPlus' + '#' + str(margin)
-        if action == 1:  # xMin
+        elif action == 1:  # xMin
             cmd = 'moveXMin' + '#' + str(margin)
-        if action == 2:  # yPlus
+        elif action == 2:  # yPlus
             cmd = 'moveYPlus' + '#' + str(margin)
-        if action == 3:  # yMin
+        elif action == 3:  # yMin
             cmd = 'moveYMin' + '#' + str(margin)
-        if action == 4:  # up
+        elif action == 4:  # up
             cmd = 'moveUp' + '#' + str(margin)
-        if action == 5:  # down
+        elif action == 5:  # down
             cmd = 'moveDown' + '#' + str(margin)
-        if action == 6:  # stay
+        elif action == 6:  # stay
             cmd = 'stay' + '#' + str(margin)
+
         data = self.send_msg_get_return(cmd)
         self.pos = [data[0], data[1], data[2]]
         lidar_ranges = data[3:]
@@ -78,7 +82,7 @@ class SingelPx4UavEnv(gazebo_env.GazeboEnv):
             if lidar_ranges[idx] > 10 or lidar_ranges[idx] == np.inf:
                 lidar_ranges[idx] = 10
 
-        # print('@env@ data' + str(data))
+        print('@env@ data' + str(data))
 
         reward = 0
         done = False  # done check
@@ -129,7 +133,7 @@ class SingelPx4UavEnv(gazebo_env.GazeboEnv):
             done = True
             reward = 0
 
-        # print('@env@ observation:' + str(state))
+        print('@env@ observation:' + str(state))
         # print('@env@ reward:' + str(reward))
         # print('@env@ done:' + str(done))
         return state, reward, done, {}
@@ -149,26 +153,8 @@ class SingelPx4UavEnv(gazebo_env.GazeboEnv):
         self.send_msg_get_return('reset')
         print('@env@ sleep 3s')
         time.sleep(3)
-        # Unpause simulation to make observation
-        # print('Unpause simulation to make observation')
-        # rospy.wait_for_service('/gazebo/unpause_physics')
-        # try:
-        #     #resp_pause = pause.call()
-        #     self.unpause()
-        # except (rospy.ServiceException) as e:
-        #     print ("/gazebo/unpause_physics service call failed")
 
-        # reset ctrl and get observation
-        # print('@env@ send takeoff msg')
         data = self.send_msg_get_return('takeoff')
-        # print ('@env@ takeoff init state:' + str(data))
-
-        # rospy.wait_for_service('/gazebo/pause_physics')
-        # try:
-        #     #resp_pause = pause.call()
-        #     self.pause()
-        # except (rospy.ServiceException) as e:
-        #     print ("/gazebo/pause_physics service call failed")
 
         data[0] = data[0] - self.des[0]
         data[1] = data[1] - self.des[1]
@@ -227,7 +213,7 @@ class SingelPx4UavEnv(gazebo_env.GazeboEnv):
 
         # done = False
         # while not done:
-        # print('@env@ send msg: ' + msg)
+        print('@env@ send msg: ' + msg)
         try:
             ctrl_client.send(msg)
             data = pickle.loads(ctrl_client.recv(1024))

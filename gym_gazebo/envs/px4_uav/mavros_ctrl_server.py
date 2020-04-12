@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 from __future__ import division
 
-
-
 import rospy
 import math
 import numpy as np
@@ -14,9 +12,9 @@ import pickle
 
 from geometry_msgs.msg import PoseStamped, Quaternion
 from mavros_msgs.msg import Altitude, ExtendedState, HomePosition, State, \
-                            WaypointList
+    WaypointList
 from mavros_msgs.srv import CommandBool, ParamGet, SetMode, WaypointClear, \
-                            WaypointPush
+    WaypointPush
 from std_msgs.msg import Header
 from pymavlink import mavutil
 from sensor_msgs.msg import NavSatFix, LaserScan
@@ -24,11 +22,10 @@ from threading import Thread
 from tf.transformations import quaternion_from_euler
 
 
-
 class MavrosCtrlCommon():
     def __init__(self, *args):
         pass
-    
+
     def setUp(self):
         print('@ctrl_server@ setUp')
         self.pos = PoseStamped()
@@ -79,7 +76,7 @@ class MavrosCtrlCommon():
                                               WaypointPush)
 
         # ROS subscribers
-        self.alt_sub = rospy.Subscriber('mavros/altitude', 
+        self.alt_sub = rospy.Subscriber('mavros/altitude',
                                         Altitude,
                                         self.altitude_callback)
         self.ext_state_sub = rospy.Subscriber('mavros/extended_state',
@@ -94,24 +91,24 @@ class MavrosCtrlCommon():
         self.local_pos_sub = rospy.Subscriber('mavros/local_position/pose',
                                               PoseStamped,
                                               self.local_position_callback)
-        self.mission_wp_sub = rospy.Subscriber('mavros/mission/waypoints', 
+        self.mission_wp_sub = rospy.Subscriber('mavros/mission/waypoints',
                                                WaypointList,
                                                self.mission_wp_callback)
         self.state_sub = rospy.Subscriber('mavros/state', State,
-                                          self.state_callback)  
-        self.get_scan_srv = rospy.Subscriber('/laser/scan', 
-                                               LaserScan,
-                                               self.scan_callback) 
-        
+                                          self.state_callback)
+        self.get_scan_srv = rospy.Subscriber('/laser/scan',
+                                             LaserScan,
+                                             self.scan_callback)
+
         # ROS publisers
         self.pos_setpoint_pub = rospy.Publisher(
             'mavros/setpoint_position/local', PoseStamped, queue_size=1)
-  
+
         # send setpoints in seperate thread
         self.pos_thread = Thread(target=self.send_pos, args=())
         self.pos_thread.daemon = True
         self.pos_thread.start()
-        
+
         print('@ctrl_server@ setUp over')
         pass
 
@@ -129,12 +126,10 @@ class MavrosCtrlCommon():
         self.reach_position(0, 0, 5, 5)
 
         self.ready = True
- 
 
     def shutDown(self):
         self.stop_thread(self.pos_thread)
 
-    
     def _async_raise(self, tid, exctype):
         """raises the exception, performs cleanup if needed"""
         tid = ctypes.c_long(tid)
@@ -153,13 +148,8 @@ class MavrosCtrlCommon():
         self._async_raise(thread.ident, SystemExit)
         print('@ctrl_server@ stop_thread')
 
-
     def tearDown(self):
         pass
-
-   
-
-    
 
     # Callback functions
     def altitude_callback(self, data):
@@ -167,7 +157,6 @@ class MavrosCtrlCommon():
 
         if not self.sub_topics_ready['alt'] and not math.isnan(data.amsl):
             self.sub_topics_ready['alt'] = True
-
 
     def extended_state_callback(self, data):
         self.extended_state = data
@@ -213,14 +202,14 @@ class MavrosCtrlCommon():
 
     # Helper methods
     def send_pos(self):
-        rate = rospy.Rate(30) # Hz
+        rate = rospy.Rate(30)  # Hz
         self.pos.header = Header()
         self.pos.header.frame_id = "base_footprint"
 
         while not rospy.is_shutdown():
             self.pos.header.stamp = rospy.Time.now()
             self.pos_setpoint_pub.publish(self.pos)
-            try:    # prevent garbage in console output when thread is killed
+            try:  # prevent garbage in console output when thread is killed
                 rate.sleep()
             except rospy.ROSInterruptException:
                 pass
@@ -232,6 +221,12 @@ class MavrosCtrlCommon():
                         self.local_position.pose.position.y,
                         self.local_position.pose.position.z))
         return np.linalg.norm(desired - pos) < offset
+
+    def move(self, x, y, z, timeout=5):
+        t_x = self.pos.pose.position.x + float(x)
+        t_y = self.pos.pose.position.y + float(y)
+        t_z = self.pos.pose.position.z + float(z)
+        self.reach_position(t_x, t_y, t_z, timeout)
 
     def reach_position(self, x, y, z, timeout):
         """timeout(int): seconds"""
@@ -247,7 +242,7 @@ class MavrosCtrlCommon():
         self.pos.pose.orientation = Quaternion(*quaternion)
 
         # dose it reach the position in 'time' seconds?
-        loop_freq = 2 # Hz
+        loop_freq = 2  # Hz
         rate = rospy.Rate(loop_freq)
         for i in xrange(timeout * loop_freq):
             if self.is_at_position(self.pos.pose.position.x,
@@ -280,7 +275,7 @@ class MavrosCtrlCommon():
                 print(e)
 
     def set_mode(self, mode, timeout):
-        
+
         """mode: PX4 mode string, timeout(int): seconds"""
         loop_freq = 1  # Hz
         rate = rospy.Rate(loop_freq)
@@ -372,7 +367,7 @@ class MavrosCtrlCommon():
     def send_wps(self, waypoints, timeout):
         """waypoints, timeout(int): seconds"""
         if self.mission_wp.waypoints:
-             rospy.loginfo("FCU already has mission waypoints")
+            rospy.loginfo("FCU already has mission waypoints")
 
         loop_freq = 1  # Hz
         rate = rospy.Rate(loop_freq)
@@ -384,7 +379,7 @@ class MavrosCtrlCommon():
                     res = self.wp_push_srv(start_index=0, waypoints=waypoints)
                     wps_sent = res.success
                     if wps_sent:
-                         rospy.loginfo("waypoints successfully transferred")
+                        rospy.loginfo("waypoints successfully transferred")
                 except rospy.ServiceException as e:
                     rospy.logerr(e)
             else:
@@ -444,21 +439,21 @@ class MavrosCtrlCommon():
 
     def getState(self):
         data = np.array([self.local_position.pose.position.x,
-                     self.local_position.pose.position.y,
-                     self.local_position.pose.position.z])
+                         self.local_position.pose.position.y,
+                         self.local_position.pose.position.z])
         data = np.append(data, self.scan.ranges)
         # a string state date
         return data
 
-    def moveUp(self, margin = 1):
+    def moveUp(self, margin=1):
         if not self.ready:
             self.getReady()
         self.reach_position(self.local_position.pose.position.x,
                             self.local_position.pose.position.y,
                             self.local_position.pose.position.z + margin,
                             5)
-    
-    def moveDown(self, margin = 1):
+
+    def moveDown(self, margin=1):
         if not self.ready:
             self.getReady()
         self.reach_position(self.local_position.pose.position.x,
@@ -466,7 +461,7 @@ class MavrosCtrlCommon():
                             self.local_position.pose.position.z - margin,
                             5)
 
-    def moveXPlus(self, margin = 1):
+    def moveXPlus(self, margin=1):
         if not self.ready:
             self.getReady()
         self.reach_position(self.local_position.pose.position.x + margin,
@@ -474,7 +469,7 @@ class MavrosCtrlCommon():
                             self.local_position.pose.position.z,
                             5)
 
-    def moveXMin(self, margin = 1):
+    def moveXMin(self, margin=1):
         if not self.ready:
             self.getReady()
         self.reach_position(self.local_position.pose.position.x - margin,
@@ -482,7 +477,7 @@ class MavrosCtrlCommon():
                             self.local_position.pose.position.z,
                             5)
 
-    def moveYPlus(self, margin = 1):
+    def moveYPlus(self, margin=1):
         if not self.ready:
             self.getReady()
         self.reach_position(self.local_position.pose.position.x,
@@ -490,14 +485,14 @@ class MavrosCtrlCommon():
                             self.local_position.pose.position.z,
                             5)
 
-    def moveYMin(self, margin = 1):
+    def moveYMin(self, margin=1):
         if not self.ready:
             self.getReady()
         self.reach_position(self.local_position.pose.position.x,
                             self.local_position.pose.position.y - margin,
                             self.local_position.pose.position.z,
                             5)
-    
+
     def returnHomePosition(self):
         if not self.ready:
             self.getReady()
@@ -505,7 +500,7 @@ class MavrosCtrlCommon():
                             self.home_position.position.y,
                             self.home_position.position.z,
                             5)
-    
+
     def land(self):
         self.set_mode("AUTO.LAND", 5)
         self.wait_for_landed_state(mavutil.mavlink.MAV_LANDED_STATE_ON_GROUND,
@@ -526,6 +521,7 @@ class MavrosCtrlCommon():
                                    45, 0)
         self.set_arm(False, 5)
 
+
 if __name__ == '__main__':
     rospy.init_node('ctrl_server', anonymous=True)
     # print('@@@@>>>>>>>>>>>>>>>')
@@ -541,14 +537,13 @@ if __name__ == '__main__':
     time.sleep(5)
     # mcc.test_flight()
 
-
     # create a server
-    server = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-    server.bind(('localhost',19881))
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.bind(('localhost', 19881))
     server.listen(10)
     print('@ctrl_server@ ready')
     over = False
-    
+
     while True:
         conn, addr = server.accept()
         # rospy.loginfo('mavros_ctrl_server connected with:' + str(addr))
@@ -559,7 +554,7 @@ if __name__ == '__main__':
             # get cmd content
             cmd = data[0]
             margin = 1
-            if len(data) > 1 and len(data) < 2:
+            if 1 < len(data) < 3:
                 margin = int(data[1])
             # execute cmd
             #   env reset 
@@ -578,10 +573,13 @@ if __name__ == '__main__':
                 mcc.shutDown()
                 over = True
                 r_msg = 'recv shutdown'
+            elif cmd == 'move':
+                mcc.move(data[1], data[2], data[3])
+                r_msg = mcc.getState()
             else:
                 mcc.moveOnce(cmd, margin)
                 r_msg = mcc.getState()
-            # print('@ctrl_server@ executing' + cmd + 'over, return msg ' + str(r_msg))
+            print('@ctrl_server@ executing' + cmd + 'over, return msg ' + str(r_msg))
             conn.send(pickle.dumps(r_msg))
         except BaseException as e:
             print(e)
@@ -590,7 +588,3 @@ if __name__ == '__main__':
 
         if over:
             break
-         
-
-
-        
