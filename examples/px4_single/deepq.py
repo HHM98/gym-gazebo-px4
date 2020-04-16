@@ -243,4 +243,6 @@ class DeepQ:
         self.model.save(path)
 
     def loadWeights(self, path):
-        self.model.set_weights(load_model(path).get_weights())
+        # self.model.set_weights(load_model(path).get_weights())
+        self.model = load_model(path)
+        self.targetModel = load_model(path)

@@ -579,7 +579,7 @@ if __name__ == '__main__':
             else:
                 mcc.moveOnce(cmd, margin)
                 r_msg = mcc.getState()
-            print('@ctrl_server@ executing' + cmd + 'over, return msg ' + str(r_msg))
+            # print('@ctrl_server@ executing' + cmd + 'over, return msg ' + str(r_msg))
             conn.send(pickle.dumps(r_msg))
         except BaseException as e:
             print(e)

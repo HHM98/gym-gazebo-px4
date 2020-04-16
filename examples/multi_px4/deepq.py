@@ -161,10 +161,13 @@ class DeepQ:
     # select the action with the highest Q value
     def selectAction(self, qValues, explorationRate):
         rand = random.random()
-        if rand < explorationRate :
+        if rand < explorationRate:
             action = np.random.randint(0, self.output_size)
         else :
             action = self.getMaxIndex(qValues)
+        # print '@deepQ select action qValues: {0} \n action {1} \n selected action {2}'.format(
+        #     qValues, action, self.getMaxIndex(qValues)
+        # )
         return action
 
     def selectActionByProbability(self, qValues, bias):
@@ -205,8 +208,8 @@ class DeepQ:
         if self.memory.getCurrentSize() > self.learnStart:
             # learn in batches of 128
             miniBatch = self.memory.getMiniBatch(miniBatchSize)
-            X_batch = np.empty((0,self.input_size), dtype = np.float64)
-            Y_batch = np.empty((0,self.output_size), dtype = np.float64)
+            X_batch = np.empty((0, self.input_size), dtype=np.float64)
+            Y_batch = np.empty((0, self.output_size), dtype=np.float64)
             for sample in miniBatch:
                 isFinal = sample['isFinal']
                 state = sample['state']
@@ -223,6 +226,7 @@ class DeepQ:
 
                 X_batch = np.append(X_batch, np.array([state.copy()]), axis=0)
                 Y_sample = qValues.copy()
+                action = int(action)
                 Y_sample[action] = targetValue
                 Y_batch = np.append(Y_batch, np.array([Y_sample]), axis=0)
                 if isFinal:

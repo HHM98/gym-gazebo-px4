@@ -45,7 +45,7 @@ class MavrosCtrlCommon():
         self.ready = False
 
         # Target offset radius
-        self.radius = 1
+        self.radius = 0.25
 
         self.sub_topics_ready = {
             key: False
@@ -127,7 +127,7 @@ class MavrosCtrlCommon():
 
         self.set_mode("OFFBOARD", 5)
         self.set_arm(True, 5)
-        self.reach_position(0, 0, 5, 5)
+        self.reach_position(0, 0, 15, 5)
 
         self.ready = True
 
@@ -240,9 +240,9 @@ class MavrosCtrlCommon():
         self.pos.pose.orientation = Quaternion(*quaternion)
 
         # dose it reach the position in 'time' seconds?
-        loop_freq = 2  # Hz
+        loop_freq = 100  # Hz
         rate = rospy.Rate(loop_freq)
-        for i in xrange(timeout * loop_freq):
+        for i in xrange(int(timeout * loop_freq)):
             if self.is_at_position(self.pos.pose.position.x,
                                    self.pos.pose.position.y,
                                    self.pos.pose.position.z, self.radius):
@@ -449,7 +449,7 @@ class MavrosCtrlCommon():
         self.reach_position(self.local_position.pose.position.x,
                             self.local_position.pose.position.y,
                             self.local_position.pose.position.z + margin,
-                            5)
+                            0)
 
     def moveDown(self, margin=1):
         if not self.ready:
@@ -457,7 +457,7 @@ class MavrosCtrlCommon():
         self.reach_position(self.local_position.pose.position.x,
                             self.local_position.pose.position.y,
                             self.local_position.pose.position.z - margin,
-                            5)
+                            0)
 
     def moveXPlus(self, margin=1):
         if not self.ready:
@@ -465,7 +465,7 @@ class MavrosCtrlCommon():
         self.reach_position(self.local_position.pose.position.x + margin,
                             self.local_position.pose.position.y,
                             self.local_position.pose.position.z,
-                            5)
+                            0)
 
     def moveXMin(self, margin=1):
         if not self.ready:
@@ -473,7 +473,7 @@ class MavrosCtrlCommon():
         self.reach_position(self.local_position.pose.position.x - margin,
                             self.local_position.pose.position.y,
                             self.local_position.pose.position.z,
-                            5)
+                            0)
 
     def moveYPlus(self, margin=1):
         if not self.ready:
@@ -481,7 +481,7 @@ class MavrosCtrlCommon():
         self.reach_position(self.local_position.pose.position.x,
                             self.local_position.pose.position.y + margin,
                             self.local_position.pose.position.z,
-                            5)
+                            0)
 
     def moveYMin(self, margin=1):
         if not self.ready:
@@ -489,7 +489,7 @@ class MavrosCtrlCommon():
         self.reach_position(self.local_position.pose.position.x,
                             self.local_position.pose.position.y - margin,
                             self.local_position.pose.position.z,
-                            5)
+                            0)
 
     def returnHomePosition(self):
         if not self.ready:
@@ -500,7 +500,16 @@ class MavrosCtrlCommon():
                             5)
 
     def land(self):
-        self.set_mode("AUTO.LAND", 5)
+        self.set_mode("AUTO.LAND", 2)
+        self.wait_for_landed_state(mavutil.mavlink.MAV_LANDED_STATE_ON_GROUND,
+                                   45, 0)
+        self.set_arm(False, 5)
+
+    def land_mode(self):
+        self.set_mode("AUTO.LAND", 2)
+
+
+    def disarm(self):
         self.wait_for_landed_state(mavutil.mavlink.MAV_LANDED_STATE_ON_GROUND,
                                    45, 0)
         self.set_arm(False, 5)
@@ -534,16 +543,16 @@ if __name__ == '__main__':
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.bind(('localhost', int(port)))
     server.listen(10)
-    print('@ctrl_server@ ready port {0}'.format(port))
+    # print('@ctrl_server@ ready port {0}'.format(port))
     over = False
 
     while True:
         conn, addr = server.accept()
-        rospy.loginfo('mavros_ctrl_server port:{0} connected with:{1}'.format(port, str(addr)))
+        # rospy.loginfo('mavros_ctrl_server port:{0} connected with:{1}'.format(port, str(addr)))
         try:
-            print('@ctrl_server@ waiting cmd')
+            # print('@ctrl_server@ waiting cmd')
             data = conn.recv(1024).split('#')
-            print('@ctrl_server@ get cmd ' + str(data))
+            # print('@ctrl_server@ get cmd ' + str(data))
             # get cmd content
             cmd = data[0]
             margin = 1
@@ -552,27 +561,38 @@ if __name__ == '__main__':
             # execute cmd
             #   env reset 
             r_msg = ''
-            print('@ctrl_server@ executing cmd: ' + cmd)
+            # print('@ctrl_server@ executing cmd: ' + cmd)
             if cmd == 'reset':
-                mcc.reach_position(0, 0, 0, 2)
-                mcc.land()
-                r_msg = mcc.getState()
+                mcc.land_mode()
+                r_msg = 'reset'
             #   the env is killed
             elif cmd == 'takeoff':
                 mcc.getReady()
                 r_msg = mcc.getState()
-
+                if mcc.uav_number == '1':
+                    r_msg[0] += 6
+                elif mcc.uav_number == '2':
+                    r_msg[1] += 6
+            elif cmd == 'disarm':
+                mcc.land()
+                r_msg = 'disarm'
             elif cmd == 'shutdown':
                 mcc.shutDown()
                 over = True
                 r_msg = 'recv shutdown'
+            elif cmd == 'state':
+                r_msg = mcc.getState()
+                if mcc.uav_number == '1':
+                    r_msg[0] += 6
+                elif mcc.uav_number == '2':
+                    r_msg[1] += 6
             else:
                 mcc.moveOnce(cmd, margin)
-                r_msg = mcc.getState()
-            print('@ctrl_server@ executing ' + cmd + ' over, return msg ' + str(r_msg))
+                r_msg = 'roger'
+            # print('@ctrl_server@ uav_{0} execute {1} over, return msg {2}'.format(mcc.uav_number, cmd, r_msg))
             conn.send(pickle.dumps(r_msg))
         except BaseException as e:
-            print(e)
+            print('@ctrl_server@' + str(e))
             time.sleep(3)
             # conn.send('invaild cmd')
 

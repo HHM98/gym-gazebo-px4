@@ -58,7 +58,7 @@ class SingelPx4UavEnv(gazebo_env.GazeboEnv):
                         self.pos[2]]
 
         cmd = ''
-        if type(action) != type(0):
+        if type(action) == np.numarray:
             cmd = 'move#{0}#{1}#{2}'.format(action[0], action[1], action[2])
         elif action == 0:  # xPlus
             cmd = 'moveXPlus' + '#' + str(margin)
@@ -82,7 +82,7 @@ class SingelPx4UavEnv(gazebo_env.GazeboEnv):
             if lidar_ranges[idx] > 10 or lidar_ranges[idx] == np.inf:
                 lidar_ranges[idx] = 10
 
-        print('@env@ data' + str(data))
+        # print('@env@ data' + str(data))
 
         reward = 0
         done = False  # done check
@@ -133,7 +133,7 @@ class SingelPx4UavEnv(gazebo_env.GazeboEnv):
             done = True
             reward = 0
 
-        print('@env@ observation:' + str(state))
+        # print('@env@ observation:' + str(state))
         # print('@env@ reward:' + str(reward))
         # print('@env@ done:' + str(done))
         return state, reward, done, {}
@@ -213,7 +213,7 @@ class SingelPx4UavEnv(gazebo_env.GazeboEnv):
 
         # done = False
         # while not done:
-        print('@env@ send msg: ' + msg)
+        # print('@env@ send msg: ' + msg)
         try:
             ctrl_client.send(msg)
             data = pickle.loads(ctrl_client.recv(1024))

@@ -1,4 +1,6 @@
 import random
+import time
+
 import numpy as np
 import tensorflow as tf
 
@@ -8,8 +10,8 @@ from keras.models import load_model, Model
 from keras.optimizers import Adam
 from keras.regularizers import l2
 import keras.backend as k_b
-
 import memory
+
 
 
 class DDPG:
@@ -97,6 +99,7 @@ class DDPG:
         exploration_rate = max(exploration_rate, 0.1)
         if random.random() > exploration_rate:
             action = self.actor.predict(state_now)[0]
+            print('action' + str(action))
         else:
             action = np.array([])
             for idx in range(0, self.output_size):
@@ -126,10 +129,10 @@ class DDPG:
                 target += self.discount_factor * q[0]
             y.append(target)
 
-            if random.random() < 0.0025:
-                print '@train@ \n state:{0} \n new_state{1} \n action:{2} \n reward{3} \n n_action{4} \n y{5}'.format(
-                    states[idx], newState, actions[idx], reward, next_action, y)
-
+            if random.random() < 1:
+                print ('@train@ \n state:{0} \n new_state{1} \n action:{2} \n reward{3} \n n_action{4} \n y{5}'.format(
+                    states[idx], newState, actions[idx], reward, next_action, target))
+        time.sleep(20)
         return np.array(states), np.array(actions), np.array(y)
 
     def update_target(self):
@@ -154,10 +157,14 @@ class DDPG:
         # train actor NN
         actor_next_actions = []
         for state in states:
-            actor_next_actions.append(self.actor.predict(state.reshape(1, self.input_size))[0])
+            actor_next_action = self.actor.predict(state.reshape(1, self.input_size))[0]
+            actor_next_actions.append(actor_next_action)
         actor_next_actions = np.array(actor_next_actions)
 
-        a_grads = tmp = self.get_critic_grad([states, actor_next_actions])[0]
+        # print(states)
+        # print(actor_next_actions)
+        a_grads = np.array(self.get_critic_grad([states, actor_next_actions]))[0]
+        # print(a_grads)
         self.sess.run(self.opt, feed_dict={
             self.ainput: states,
             self.action_gradient: a_grads
@@ -167,15 +174,23 @@ class DDPG:
 if __name__ == '__main__':
     inputSize = 12
     output = 3
-    ddpg = DDPG(inputSize, output, 1000, 0.99, 0.001, 32, 4)
+    ddpg = DDPG(inputSize, output, 1000, 0.99, 0.001, 32, 2)
     ddpg.init_net_works([30, 30])
 
     step = 0
     for episode in range(100):
         observation = np.zeros(inputSize)
+        for idx in range(inputSize):
+            observation[idx] = random.random() * random.choice([-1, 1])
         for episode_step in range(200):
-            action = ddpg.get_action(observation.reshape(1, inputSize), 0.5)
+            observation = np.zeros(inputSize)
+            for idx in range(inputSize):
+                observation[idx] = random.random() * random.choice([-1, 1])
+            action = ddpg.get_action(observation.reshape(1, inputSize), 0)
             n_observation = np.zeros(inputSize)
+            for idx in range(inputSize):
+                n_observation[idx] = random.random() * random.choice([-1, 1])
+            n_action = ddpg.get_action(n_observation.reshape(1, inputSize), 0)
             reward = random.random()
 
             ddpg.add_memory(observation, action, reward, n_observation, True)

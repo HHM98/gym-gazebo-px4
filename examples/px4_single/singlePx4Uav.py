@@ -72,12 +72,12 @@ if __name__ == '__main__':
 
     env = gym.make('SinglePx4Uav-v0')
 
-    outdir = '/home/huhaomeng/px4_train/gazebo_gym_experiments'
-    path = '/home/huhaomeng/px4_train/weights/px4_nav_dqn_ep'
+    outdir = '/home/huhaomeng/px4_train/single_px4/gazebo_gym_experiments'
+    path = '/home/huhaomeng/px4_train/single_px4/weights/px4_nav_dqn_ep'
 
     continue_execution = True
     # fill this if continue_execution=True
-    resume_epoch = '50'  # change to epoch to continue from
+    resume_epoch = '600'  # change to epoch to continue from
     resume_path = path + resume_epoch
     weights_path = resume_path + '.h5'
     monitor_path = resume_path
@@ -141,11 +141,11 @@ if __name__ == '__main__':
     highest_reward = 0
 
     start_time = time.time()
-    counter = 0
+    restart_cnt = 0
 
     # iterating from 'current epoch'.
     for epoch in range(current_epoch + 1, epochs + 1, 1):
-        counter += 1
+        restart_cnt += 1
         random_int = random.randint(0, 3)
         env.env.set_des(des_list[random_int])
         print ('set des: ' + str(des_list[random_int]))
@@ -163,7 +163,7 @@ if __name__ == '__main__':
 
             n_observation, reward, done, info = env.step(action)
 
-            if stepCounter % 200 == 0 or done == True or episode_step == 0:
+            if stepCounter % 200 == 0 or done or episode_step == 0:
                 print('EP:' + str(epoch) + ' step:' + str(stepCounter) + ' episode:' + str(episode_step))
                 print('@env@ ob:' + str(observation))
                 print('@env@ des' + str(des_list[random_int]))
@@ -186,9 +186,9 @@ if __name__ == '__main__':
 
             if done:
                 # restart env when env broken
-                if episode_step < 2 or counter > 5:
+                if episode_step < 2 or restart_cnt > 5:
                     restart_env(env)
-                    counter = 0
+                    restart_cnt = 0
 
                 last100Scores[last100ScoresIndex] = episode_step
                 last100ScoresIndex += 1
@@ -222,12 +222,12 @@ if __name__ == '__main__':
                     parameter_dictionary = dict(zip(parameter_keys, parameter_values))
                     with open(path + str(epoch) + '.json', 'w') as outfile:
                         json.dump(parameter_dictionary, outfile)
+
+            episode_step += 1
             stepCounter += 1
             if stepCounter % updateTargetNetwork == 0:
                 deepQ.updateTargetNetwork()
                 print("updating target network")
-
-            episode_step += 1
 
         explorationRate *= 0.996  # epsilon decay
         explorationRate = max(0.10, explorationRate)

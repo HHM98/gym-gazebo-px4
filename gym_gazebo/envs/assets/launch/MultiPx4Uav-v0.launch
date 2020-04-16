@@ -7,7 +7,7 @@
     <arg name="vehicle" default="iris_rplidar"/>
     <arg name="world" default="$(find mavlink_sitl_gazebo)/worlds/city1.world"/>
     <!-- gazebo configs -->
-    <arg name="gui" default="true"/>
+    <arg name="gui" default="false"/>
     <arg name="debug" default="false"/>
     <arg name="verbose" default="false"/>
     <arg name="paused" default="false"/>
@@ -52,7 +52,7 @@
         <arg name="fcu_url" default="udp://:14541@localhost:14581"/>
         <!-- PX4 SITL and vehicle spawn -->
         <include file="$(find px4)/launch/single_vehicle_spawn.launch">
-            <arg name="x" value="5"/>
+            <arg name="x" value="6"/>
             <arg name="y" value="0"/>
             <arg name="z" value="0"/>
             <arg name="R" value="0"/>
@@ -79,7 +79,7 @@
         <!-- PX4 SITL and vehicle spawn -->
         <include file="$(find px4)/launch/single_vehicle_spawn.launch">
             <arg name="x" value="0"/>
-            <arg name="y" value="5"/>
+            <arg name="y" value="6"/>
             <arg name="z" value="0"/>
             <arg name="R" value="0"/>
             <arg name="P" value="0"/>

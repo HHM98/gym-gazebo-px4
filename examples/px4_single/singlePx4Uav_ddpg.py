@@ -67,7 +67,7 @@ if __name__ == '__main__':
     epochs = 1000
     steps = 1000
     updateTargetNetwork = 5000
-    explorationRate = 1
+    explorationRate = 0
     minibatch_size = 32
     learnStart = 32
     learningRate = 0.0001
@@ -77,7 +77,7 @@ if __name__ == '__main__':
     network_outputs = 3
     network_structure = [30, 30]
     current_epoch = 0
-    max_margin = 3
+    max_margin = 2
 
     ddpg = ddpg.DDPG(network_inputs, network_outputs, memorySize, learningRate, discountFactor, learnStart, max_margin)
     ddpg.init_net_works(network_structure)
@@ -99,12 +99,13 @@ if __name__ == '__main__':
             action = ddpg.get_action(observation.reshape(1, network_inputs), explorationRate)
 
             n_observation, reward, done, info = env.step(action)
-            if stepCounter % 100 == 0 or done == True or episode_step == 1:
+            if stepCounter % 100 == 0 or done or episode_step == 1:
                 print('EP: ' + str(epoch) + ' step:' + str(stepCounter) + ' episode:' + str(episode_step))
-                print('@env@ ob:' + str(observation))
-                print('@env@ des' + str(des_list[random_des]))
-                print('@env@ reward:' + str(reward))
-                print('@env@ done:' + str(done))
+                print('@env@ ob: ' + str(observation))
+                print('@env@ action ' + str(action))
+                print('@env@ des ' + str(des_list[random_des]))
+                print('@env@ reward: ' + str(reward))
+                print('@env@ done: ' + str(done))
 
             ddpg.add_memory(observation, action, reward, n_observation, done)
 
