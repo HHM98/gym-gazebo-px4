@@ -127,7 +127,7 @@ class MavrosCtrlCommon():
 
         self.set_mode("OFFBOARD", 5)
         self.set_arm(True, 5)
-        self.reach_position(0, 0, 15, 5)
+        self.reach_position(0, 0, 15, 0.3)
 
         self.ready = True
 
@@ -581,6 +581,10 @@ if __name__ == '__main__':
                 over = True
                 r_msg = 'recv shutdown'
             elif cmd == 'state':
+                mcc.reach_position(mcc.local_position.pose.position.x,
+                                   mcc.local_position.pose.position.y,
+                                   mcc.local_position.pose.position.z,
+                                   0)
                 r_msg = mcc.getState()
                 if mcc.uav_number == '1':
                     r_msg[0] += 6

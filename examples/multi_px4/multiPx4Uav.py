@@ -10,6 +10,7 @@ import signal
 import deepq
 import random
 import pickle
+import liveplot
 import numpy as np
 
 
@@ -53,11 +54,11 @@ def restart_env(env):
     if (gzclient_count or gzserver_count or roscore_count or rosmaster_count or px4_count or mavros_count > 0):
         os.wait()
 
-    env = gym.make('MultiPx4Uav-v0')
+    new_env = gym.make('MultiPx4Uav-v0')
     time.sleep(3)
     env._max_episode_steps = steps
     env = gym.wrappers.Monitor(env, outdir, force=not continue_execution, resume=continue_execution)
-
+    env.env = new_env
 
 def load_leader_weights(leader_path, epoch, _outdir):
     resume_path = leader_path + epoch
@@ -104,11 +105,13 @@ if __name__ == '__main__':
 
     outdir = '/home/huhaomeng/px4_train/multi_px4/gazebo_gym_experiments'
     path = '/home/huhaomeng/px4_train/multi_px4/wrights/multi_px4_dan_ep'
+    plotter = liveplot.LivePlot(outdir)
+
     uav_count = 3
 
     continue_execution = False
     # choose the epoch
-    resume_epoch = '100'
+    resume_epoch = '75'
     resume_path = path + resume_epoch
     weights_path = [resume_path + '_leader.h5', resume_path + '_follower.h5']
     monitor_path = resume_path
@@ -119,7 +122,7 @@ if __name__ == '__main__':
         # Each time we take a sample and update our weights it is called a mini-batch.
         # Each time we run through the entire dataset, it's called an epoch.
         # PARAMETER LIST
-        epochs = 1000
+        epochs = 350
         steps = 1000
         updateTargetNetwork = 5000
         explorationRate = 1
@@ -194,7 +197,7 @@ if __name__ == '__main__':
     for epoch in range(current_epoch + 1, epochs + 1, 1):
         restart_cnt += 1
         # random choose destination
-        random_des_idx = random.randint(0, 3)
+        random_des_idx = random.choice([3])
         env.env.set_des(des_list[random_des_idx])
         print ('set des: ' + str(des_list[random_des_idx]))
 
@@ -218,6 +221,7 @@ if __name__ == '__main__':
 
             n_observations, reward, done, info = env.step(actions)
             rewards = info['rewards']
+            dones = info['dones']
 
             if stepCounter % 200 == 0 or done or episode_step == 0:
                 print('@env@ ob:' + str(observations))
@@ -232,21 +236,19 @@ if __name__ == '__main__':
             action_finish_time = time.time()
             # print 'action cost time: ' + str(action_finish_time - action_start_time)
 
-            learn_start_time = time.time()
             for idx in range(uav_count):
                 cumulated_reward[idx] += rewards[idx]
                 if idx == 0:
                     if not ('nan' in (str(observations) + str(actions) + str(n_observations))):
-                        leader_deepQ.addMemory(observations[idx], actions[idx], rewards[idx], n_observations[idx], done)
+                        leader_deepQ.addMemory(observations[idx], actions[idx], rewards[idx] + 0.25 * reward, n_observations[idx], dones[idx])
                     if stepCounter >= learnStart:
                         leader_deepQ.learnOnMiniBatch(minibatch_size, stepCounter > updateTargetNetwork)
                 else:
-                    follower_deepQ.addMemory(observations[idx], actions[idx], rewards[idx], n_observations[idx], done)
+                    follower_deepQ.addMemory(observations[idx], actions[idx], rewards[idx] + 0.25 * reward, n_observations[idx], dones[idx])
                     if stepCounter >= learnStart:
                         follower_deepQ.learnOnMiniBatch(minibatch_size, stepCounter > updateTargetNetwork)
 
                 highest_reward[idx] = max(highest_reward[idx], cumulated_reward[idx])
-            learn_finish_time = time.time()
             # print 'learn cost time: ' + str(learn_finish_time - learn_start_time)
 
             observations = n_observations
@@ -298,7 +300,10 @@ if __name__ == '__main__':
                 follower_deepQ.updateTargetNetwork()
                 print 'updating target network'
 
-        explorationRate *= 0.995
+        explorationRate *= 0.992
         explorationRate = max(0.1, explorationRate)
+
+        if epoch % 5 == 0:
+            plotter.plot(env)
 
     env.close()

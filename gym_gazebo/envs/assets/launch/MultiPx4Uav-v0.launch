@@ -5,7 +5,7 @@
     <!-- vehicle model and world -->
     <arg name="est" default="ekf2"/>
     <arg name="vehicle" default="iris_rplidar"/>
-    <arg name="world" default="$(find mavlink_sitl_gazebo)/worlds/city1.world"/>
+    <arg name="world" default="$(find mavlink_sitl_gazebo)/worlds/city2.world"/>
     <!-- gazebo configs -->
     <arg name="gui" default="false"/>
     <arg name="debug" default="false"/>
