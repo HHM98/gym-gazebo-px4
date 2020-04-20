@@ -29,7 +29,6 @@ def clear_monitor_files(training_dir):
 
 def restart_env(env):
     env.stop_ctrl_server()
-    env.close()
 
     tmp = os.popen("ps -Af").read()
     gzclient_count = tmp.count('gzclient')
@@ -57,7 +56,6 @@ def restart_env(env):
     new_env = gym.make('MultiPx4Uav-v0')
     time.sleep(3)
     env._max_episode_steps = steps
-    env = gym.wrappers.Monitor(env, outdir, force=not continue_execution, resume=continue_execution)
     env.env = new_env
 
 def load_leader_weights(leader_path, epoch, _outdir):
@@ -109,9 +107,9 @@ if __name__ == '__main__':
 
     uav_count = 3
 
-    continue_execution = False
+    continue_execution = True
     # choose the epoch
-    resume_epoch = '75'
+    resume_epoch = '175'
     resume_path = path + resume_epoch
     weights_path = [resume_path + '_leader.h5', resume_path + '_follower.h5']
     monitor_path = resume_path
@@ -144,6 +142,8 @@ if __name__ == '__main__':
         follower_deepQ = deepq.DeepQ((network_inputs - 2), network_outputs, memorySize,
                                      discountFactor, learningRate, learnStart)
         follower_deepQ.initNetworks(network_structure)
+
+        leader_deepQ.memory.liveplot = plotter
 
     # load weights, monitor info and parameter info,
     else:
@@ -181,6 +181,7 @@ if __name__ == '__main__':
         clear_monitor_files(outdir)
         copy_tree(monitor_path, outdir)
 
+    plotter = leader_deepQ.memory.liveplot
     env._max_episode_steps = steps  # env returns done after _max_episode_steps
     env = gym.wrappers.Monitor(env, outdir, force=not continue_execution, resume=continue_execution)
 
@@ -254,6 +255,9 @@ if __name__ == '__main__':
             observations = n_observations
 
             if done:
+                # record cumulated_reward and done reason
+                leader_deepQ.episode_record(cumulated_reward, info['done_reason'])
+
                 # restart env when env broken and used 5 times
                 restart_env(env)
 
@@ -303,7 +307,7 @@ if __name__ == '__main__':
         explorationRate *= 0.992
         explorationRate = max(0.1, explorationRate)
 
-        if epoch % 5 == 0:
+        if epoch % 10 == 0:
             plotter.plot(env)
 
     env.close()

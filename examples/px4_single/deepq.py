@@ -201,6 +201,9 @@ class DeepQ:
     def addMemory(self, state, action, reward, newState, isFinal):
         self.memory.addMemory(state, action, reward, newState, isFinal)
 
+    def episode_record(self, reward, done_reason):
+        self.memory.add_episode_record(reward, done_reason)
+
     def learnOnLastState(self):
         if self.memory.getCurrentSize() >= 1:
             return self.memory.getMemory(self.memory.getCurrentSize() - 1)
@@ -234,9 +237,9 @@ class DeepQ:
                     X_batch = np.append(X_batch, np.array([newState.copy()]), axis=0)
                     Y_batch = np.append(Y_batch, np.array([[reward] * self.output_size]), axis=0)
 
-            if random.random() < 0.01:
-                print ("@learn@ X_batch:" + str(X_batch[:5]))
-                print ("@learn@ Y_batch:" + str(Y_batch[:5]))
+            # if random.random() < 0.01:
+            #     print ("@learn@ X_batch:" + str(X_batch[:5]))
+            #     print ("@learn@ Y_batch:" + str(Y_batch[:5]))
             self.model.fit(X_batch, Y_batch, batch_size=len(miniBatch), epochs=1, verbose=0)
 
     def saveModel(self, path):

@@ -7,7 +7,7 @@
     <arg name="vehicle" default="iris_rplidar"/>
     <arg name="world" default="$(find mavlink_sitl_gazebo)/worlds/city2.world"/>
     <!-- gazebo configs -->
-    <arg name="gui" default="false"/>
+    <arg name="gui" default="true"/>
     <arg name="debug" default="false"/>
     <arg name="verbose" default="false"/>
     <arg name="paused" default="false"/>

@@ -40,7 +40,7 @@ class MultiPx4UavEnv(gazebo_env.GazeboEnv):
         self.action_space = spaces.Discrete(7)  # U, D, F, B, L, R
         self.reward_range = (-np.inf, np.inf)
         self._seed()
-        self.radius = 1
+        self.radius = 10
 
         cmd = 'python /home/huhaomeng/gym-gazebo/gym_gazebo/envs/px4_uav/multi_mavros_ctrl_server.py {0} {1} &'
         for x in range(0, self.uav_count):
@@ -57,6 +57,7 @@ class MultiPx4UavEnv(gazebo_env.GazeboEnv):
         all_uav_data = []
         rewards = np.zeros(self.uav_count)
         done = False
+        done_reason = ''
         old_positions = self.positions.copy()
         dones = np.empty(self.uav_count, bool)
 
@@ -121,6 +122,8 @@ class MultiPx4UavEnv(gazebo_env.GazeboEnv):
                 distance_with_leader = all_uav_distance[0][idx]
                 old_distance_value, useless = self.distance_value(old_distance_with_leader)
                 dist_value, uav_done = self.distance_value(distance_with_leader, uav_done)
+                if uav_done and done_reason == '':
+                    done_reason = 'distance'
                 dist_reward = dist_value - old_distance_value
                 if distance_with_leader > 5:
                     dist_reward += 1.5 * (old_distance_with_leader - distance_with_leader)
@@ -141,6 +144,8 @@ class MultiPx4UavEnv(gazebo_env.GazeboEnv):
                     danger_value -= 6 / (i - 1)
             danger_reward = danger_value - self.old_danger_values[idx]
             reward += danger_reward
+            if uav_done and done_reason == '':
+                done_reason = 'laser_danger'
             # print 'old danger_value: {0} new danger_value: {1} danger_reward {2}'.format(
             #     self.old_danger_values[idx], danger_value, danger_reward
             # )
@@ -160,16 +165,20 @@ class MultiPx4UavEnv(gazebo_env.GazeboEnv):
                     # )
             dist_reward = distance_value - self.old_distance_values[idx]
             reward += dist_reward
+            if uav_done and done_reason == '':
+                done_reason = 'distance'
             # print 'uav_{0} \n old_distance_value: {1} distance_value: {2} \n distance reward: {3}'.format(
             #     idx, self.old_distance_values[idx], distance_value, dist_reward
             # )
             self.old_distance_values[idx] = distance_value
 
             # finish reward
-            if idx == 0 and self.is_at_position(self.des, uav_pos, 4):
+            if idx == 0 and self.is_at_position(self.des, uav_pos, 10):
                 # print '@env@ done because finish'
                 uav_done = True
                 reward += 20
+            if uav_done and done_reason == '':
+                done_reason = 'finish'
 
             # out of map punishment
             if (uav_pos[0] < -50 or
@@ -180,6 +189,8 @@ class MultiPx4UavEnv(gazebo_env.GazeboEnv):
                 reward -= 50
                 uav_done = True
                 # print '@env@ uav_{0} done because out of map'.format(idx)
+            if uav_done and done_reason == '':
+                done_reason = 'out'
 
             rewards[idx] = reward
             dones[idx] = uav_done
@@ -194,7 +205,7 @@ class MultiPx4UavEnv(gazebo_env.GazeboEnv):
         #     execute_action_finish_time - step_start_time,
         #     step_finish_time - step_start_time
         # )
-        return states, np.sum(rewards), done, {'rewards': rewards, 'dones': dones}
+        return states, np.sum(rewards), done, {'rewards': rewards, 'dones': dones, 'done_reason': done_reason}
 
     def reset(self):
         print('@env@ Resets the state of the environment and returns an initial observation.')

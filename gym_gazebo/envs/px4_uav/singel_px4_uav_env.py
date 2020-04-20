@@ -46,7 +46,7 @@ class SingelPx4UavEnv(gazebo_env.GazeboEnv):
         self.pos = np.array([0, 0, 0])
 
     def step(self, action):
-        margin = 2
+        margin = 1
         rospy.wait_for_service('/gazebo/unpause_physics')
         try:
             self.unpause()
@@ -56,6 +56,8 @@ class SingelPx4UavEnv(gazebo_env.GazeboEnv):
         old_position = [self.pos[0],
                         self.pos[1],
                         self.pos[2]]
+
+        done_reason = ''
 
         cmd = ''
         if type(action) == np.numarray:
@@ -92,6 +94,7 @@ class SingelPx4UavEnv(gazebo_env.GazeboEnv):
                                self.pos[0], self.pos[1], self.pos[2],
                                self.radius):
             done = True
+            done_reason = 'finish'
             reward = reward + 10
         # move reward
         reward = reward + 2 * self.cal_distence(old_position, self.pos, self.des)
@@ -101,6 +104,8 @@ class SingelPx4UavEnv(gazebo_env.GazeboEnv):
             if i < 1.5:
                 reward = -5
                 done = True
+                if done and done_reason == '':
+                    done_reason = 'laser_danger'
             elif i <= 6:
                 reward = reward - 1 / (i - 1)
 
@@ -112,6 +117,8 @@ class SingelPx4UavEnv(gazebo_env.GazeboEnv):
                 self.pos[2] < 1):
             reward = reward - 5
             done = True
+            if done and done_reason == '':
+                done_reason = 'out of map'
 
         # trans relative position
         data[0] = data[0] - self.des[0]
@@ -136,7 +143,7 @@ class SingelPx4UavEnv(gazebo_env.GazeboEnv):
         # print('@env@ observation:' + str(state))
         # print('@env@ reward:' + str(reward))
         # print('@env@ done:' + str(done))
-        return state, reward, done, {}
+        return state, reward, done, {'done_reason': done_reason}
 
     def reset(self):
         # Resets the state of the environment and returns an initial observation.

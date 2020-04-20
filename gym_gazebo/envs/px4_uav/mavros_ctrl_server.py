@@ -41,7 +41,7 @@ class MavrosCtrlCommon():
         self.ready = False
 
         # Target offset radius
-        self.radius = 1
+        self.radius = 0.25
 
         self.sub_topics_ready = {
             key: False
@@ -123,7 +123,7 @@ class MavrosCtrlCommon():
 
         self.set_mode("OFFBOARD", 5)
         self.set_arm(True, 5)
-        self.reach_position(0, 0, 5, 5)
+        self.reach_position(0, 0, 5, 10)
 
         self.ready = True
 
@@ -242,7 +242,7 @@ class MavrosCtrlCommon():
         self.pos.pose.orientation = Quaternion(*quaternion)
 
         # dose it reach the position in 'time' seconds?
-        loop_freq = 2  # Hz
+        loop_freq = 100  # Hz
         rate = rospy.Rate(loop_freq)
         for i in xrange(timeout * loop_freq):
             if self.is_at_position(self.pos.pose.position.x,

@@ -18,6 +18,12 @@ class Memory:
         self.rewards = []
         self.newStates = []
         self.finals = []
+        self.history_reward = []
+        self.done_reason = []
+
+    def add_episode_record(self, reward, done_reason):
+        self.history_reward.append(reward)
+        self.done_reason.append(done_reason)
 
     def getMiniBatch(self, size):
         indices = random.sample(np.arange(len(self.states)), min(size, len(self.states)))

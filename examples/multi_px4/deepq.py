@@ -116,6 +116,8 @@ class DeepQ:
             print("layer ",i,": ",weights)
             i += 1
 
+    def episode_record(self, reward, done_reason):
+        self.memory.episode_record(reward, done_reason)
 
     def backupNetwork(self, model, backup):
         weightMatrix = []

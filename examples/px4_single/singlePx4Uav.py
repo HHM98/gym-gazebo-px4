@@ -9,6 +9,7 @@ import json
 import signal
 import deepq
 import random
+import pickle
 import numpy as np
 
 """ def render():
@@ -75,9 +76,9 @@ if __name__ == '__main__':
     outdir = '/home/huhaomeng/px4_train/single_px4/gazebo_gym_experiments'
     path = '/home/huhaomeng/px4_train/single_px4/weights/px4_nav_dqn_ep'
 
-    continue_execution = True
+    continue_execution = False
     # fill this if continue_execution=True
-    resume_epoch = '600'  # change to epoch to continue from
+    resume_epoch = '350'  # change to epoch to continue from
     resume_path = path + resume_epoch
     weights_path = resume_path + '.h5'
     monitor_path = resume_path
@@ -87,7 +88,7 @@ if __name__ == '__main__':
         # Each time we take a sample and update our weights it is called a mini-batch.
         # Each time we run through the entire dataset, it's called an epoch.
         # PARAMETER LIST
-        epochs = 1000
+        epochs = 500
         steps = 1000
         updateTargetNetwork = 5000
         explorationRate = 1
@@ -127,6 +128,9 @@ if __name__ == '__main__':
         deepQ.initNetworks(network_structure)
 
         deepQ.loadWeights(weights_path)
+
+        with open(resume_epoch + 'memory.pkl', 'rb') as openfile:
+            deepQ.memory = pickle.load(openfile)
 
         clear_monitor_files(outdir)
         copy_tree(monitor_path, outdir)
@@ -185,6 +189,8 @@ if __name__ == '__main__':
             observation = n_observation
 
             if done:
+                deepQ.episode_record(reward, info['done_reason'])
+
                 # restart env when env broken
                 if episode_step < 2 or restart_cnt > 5:
                     restart_env(env)
@@ -222,6 +228,8 @@ if __name__ == '__main__':
                     parameter_dictionary = dict(zip(parameter_keys, parameter_values))
                     with open(path + str(epoch) + '.json', 'w') as outfile:
                         json.dump(parameter_dictionary, outfile)
+                    with open(path + str(epoch) + 'memory.pkl', 'w') as outfile:
+                        pickle.dump(deepQ.memory, outfile, True)
 
             episode_step += 1
             stepCounter += 1
@@ -229,7 +237,7 @@ if __name__ == '__main__':
                 deepQ.updateTargetNetwork()
                 print("updating target network")
 
-        explorationRate *= 0.996  # epsilon decay
+        explorationRate *= 0.992  # epsilon decay
         explorationRate = max(0.10, explorationRate)
 
     env.close()
